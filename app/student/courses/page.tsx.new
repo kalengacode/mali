@@ -1,0 +1,40 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
+
+export default function StudentCourses() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Redirect to payments page immediately when component mounts
+    router.replace('/student/payments');
+  }, [router]);
+
+  return (
+    <DashboardLayout role="student">
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
+        <div className="animate-pulse">
+          <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+            <Download className="h-8 w-8 text-blue-600" />
+          </div>
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900">Redirection en cours...</h2>
+        <p className="text-gray-600 max-w-md text-center">
+          Vous allez être redirigé vers la page des paiements.
+        </p>
+        <Button 
+          variant="outline" 
+          onClick={() => router.push('/student/payments')}
+          className="mt-4"
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Aller aux paiements maintenant
+        </Button>
+      </div>
+    </DashboardLayout>
+  );
+}
