@@ -99,7 +99,7 @@ export default function TeacherDashboard() {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Calendar className="mr-2 h-5 w-5" />
-                Today's Classes
+                Today&apos;s Classes
               </CardTitle>
             </CardHeader>
             <CardContent>
