@@ -1,246 +1,486 @@
-'use client';
+"use client";
 
-import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Users, 
-  BookOpen, 
-  CreditCard, 
-  TrendingUp,
-  UserPlus,
+import { ProtectedRoute } from "@/components/auth-provider";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import {
+  School,
+  Users,
+  BookOpen,
+  GraduationCap,
+  Plus,
+  MapPin,
+  Phone,
+  Mail,
+  Globe,
   Calendar,
-  FileText,
-  Settings,
-  BarChart3,
-  DollarSign
-} from 'lucide-react';
+  Building,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+
+interface School {
+  id: string;
+  name: string;
+  code: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  description?: string;
+  totalUsers: number;
+  totalCourses: number;
+  createdAt: string;
+}
+
+interface DashboardStats {
+  overview: {
+    totalSchools: number;
+    totalUsers: number;
+    totalStudents: number;
+    totalTeachers: number;
+    totalCourses: number;
+  };
+  recentUsers: Array<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: string;
+    createdAt: string;
+  }>;
+}
 
 export default function AdminDashboard() {
-  const systemStats = [
-    { label: 'Total Students', value: 1247, change: '+5.2%', icon: Users },
-    { label: 'Active Teachers', value: 85, change: '+2.1%', icon: UserPlus },
-    { label: 'Active Courses', value: 156, change: '+8.3%', icon: BookOpen },
-    { label: 'Total Revenue', value: '$45,230', change: '+12.5%', icon: DollarSign },
-  ];
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const { toast } = useToast();
 
-  const recentActivities = [
-    { type: 'user', message: 'New student registered: Alice Johnson', time: '2 hours ago' },
-    { type: 'payment', message: 'Payment received from Bob Smith', time: '4 hours ago' },
-    { type: 'course', message: 'New course created: Advanced Physics', time: '1 day ago' },
-    { type: 'system', message: 'System maintenance completed', time: '2 days ago' },
-  ];
+  const [newSchool, setNewSchool] = useState({
+    name: "",
+    code: "",
+    address: "",
+    phone: "",
+    email: "",
+    website: "",
+    description: "",
+  });
 
-  const pendingApprovals = [
-    { type: 'Teacher Registration', name: 'Dr. Sarah Wilson', department: 'Physics', status: 'pending' },
-    { type: 'Course Creation', name: 'Advanced Chemistry', teacher: 'Prof. Johnson', status: 'pending' },
-    { type: 'Payment Dispute', name: 'Chris Kalenga', amount: '$500', status: 'review' },
-  ];
+  useEffect(() => {
+    loadDashboardData();
+    loadSchools();
+  }, []);
 
-  const monthlyData = [
-    { month: 'Jan', students: 1100, revenue: 35000 },
-    { month: 'Feb', students: 1150, revenue: 38000 },
-    { month: 'Mar', students: 1200, revenue: 42000 },
-    { month: 'Apr', students: 1247, revenue: 45230 },
-  ];
+  const loadDashboardData = async () => {
+    try {
+      const response = await fetch("/api/dashboard/stats");
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data.stats);
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement des statistiques:", error);
+    }
+  };
+
+  const loadSchools = async () => {
+    try {
+      const response = await fetch("/api/schools");
+      if (response.ok) {
+        const data = await response.json();
+        setSchools(data.schools);
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement des écoles:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateSchool = async () => {
+    if (!newSchool.name || !newSchool.code) {
+      toast({
+        title: "Erreur",
+        description: "Le nom et le code sont requis",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const response = await fetch("/api/schools", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newSchool),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast({
+          title: "Succès",
+          description: "École créée avec succès",
+        });
+        setSchools([data.school, ...schools]);
+        setIsDialogOpen(false);
+        setNewSchool({
+          name: "",
+          code: "",
+          address: "",
+          phone: "",
+          email: "",
+          website: "",
+          description: "",
+        });
+        loadDashboardData();
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Erreur",
+          description: error.error || "Erreur lors de la création",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: "Erreur de connexion au serveur",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout role="admin">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
-    <DashboardLayout role="admin">
-      <div className="space-y-6">
-        {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6 rounded-lg">
-          <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
-          <p className="text-purple-100">Monitor and manage your educational institution</p>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {systemStats.map((stat, index) => (
-            <Card key={index}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.label}</CardTitle>
-                <stat.icon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground">
-                  <span className="text-green-600">{stat.change}</span> from last month
+    <ProtectedRoute allowedRoles={["ADMIN"]}>
+      <DashboardLayout role="admin">
+        <div className="space-y-6">
+          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold mb-2">
+                  Dashboard Administrateur
+                </h1>
+                <p className="text-purple-100">
+                  Gestion globale de la plateforme MALI
                 </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Activities */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <BarChart3 className="mr-2 h-5 w-5" />
-                Recent Activities
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentActivities.map((activity, index) => (
-                  <div key={index} className="flex items-center space-x-4 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                    <div className="flex-shrink-0">
-                      <div className={`w-2 h-2 rounded-full ${
-                        activity.type === 'user' ? 'bg-blue-500' :
-                        activity.type === 'payment' ? 'bg-green-500' :
-                        activity.type === 'course' ? 'bg-yellow-500' : 'bg-purple-500'
-                      }`} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{activity.message}</p>
-                      <p className="text-xs text-muted-foreground">{activity.time}</p>
-                    </div>
-                  </div>
-                ))}
               </div>
-            </CardContent>
-          </Card>
+              <div className="hidden md:block">
+                <Building className="h-16 w-16 text-purple-200" />
+              </div>
+            </div>
+          </div>
 
-          {/* Pending Approvals */}
+          {stats && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Écoles</CardTitle>
+                  <School className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {stats.overview.totalSchools}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Établissements actifs
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Utilisateurs
+                  </CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {stats.overview.totalUsers}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Comptes actifs
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Étudiants
+                  </CardTitle>
+                  <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {stats.overview.totalStudents}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Étudiants inscrits
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Enseignants
+                  </CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">
+                    {stats.overview.totalTeachers}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Professeurs actifs
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Cours</CardTitle>
+                  <BookOpen className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-purple-600">
+                    {stats.overview.totalCourses}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Cours disponibles
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <FileText className="mr-2 h-5 w-5" />
-                Pending Approvals
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <School className="h-5 w-5" />
+                  Gestion des Écoles
+                </CardTitle>
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Ajouter une École
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>Créer une nouvelle école</DialogTitle>
+                      <DialogDescription>
+                        Ajoutez un nouvel établissement à la plateforme MALI
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="name">Nom de l'école *</Label>
+                          <Input
+                            id="name"
+                            value={newSchool.name}
+                            onChange={(e) =>
+                              setNewSchool({
+                                ...newSchool,
+                                name: e.target.value,
+                              })
+                            }
+                            placeholder="Université de Kinshasa"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="code">Code *</Label>
+                          <Input
+                            id="code"
+                            value={newSchool.code}
+                            onChange={(e) =>
+                              setNewSchool({
+                                ...newSchool,
+                                code: e.target.value,
+                              })
+                            }
+                            placeholder="UNIKIN"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="address">Adresse</Label>
+                        <Input
+                          id="address"
+                          value={newSchool.address}
+                          onChange={(e) =>
+                            setNewSchool({
+                              ...newSchool,
+                              address: e.target.value,
+                            })
+                          }
+                          placeholder="Avenue de l'Université, Kinshasa"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="phone">Téléphone</Label>
+                          <Input
+                            id="phone"
+                            value={newSchool.phone}
+                            onChange={(e) =>
+                              setNewSchool({
+                                ...newSchool,
+                                phone: e.target.value,
+                              })
+                            }
+                            placeholder="+243 81 234 5678"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="email">Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={newSchool.email}
+                            onChange={(e) =>
+                              setNewSchool({
+                                ...newSchool,
+                                email: e.target.value,
+                              })
+                            }
+                            placeholder="info@unikin.ac.cd"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="website">Site Web</Label>
+                        <Input
+                          id="website"
+                          value={newSchool.website}
+                          onChange={(e) =>
+                            setNewSchool({
+                              ...newSchool,
+                              website: e.target.value,
+                            })
+                          }
+                          placeholder="https://www.unikin.ac.cd"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea
+                          id="description"
+                          value={newSchool.description}
+                          onChange={(e) =>
+                            setNewSchool({
+                              ...newSchool,
+                              description: e.target.value,
+                            })
+                          }
+                          placeholder="Description de l'établissement..."
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsDialogOpen(false)}
+                      >
+                        Annuler
+                      </Button>
+                      <Button
+                        onClick={handleCreateSchool}
+                        disabled={isCreating}
+                      >
+                        {isCreating ? "Création..." : "Créer l'école"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {pendingApprovals.map((approval, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-medium text-sm">{approval.type}</p>
-                        <p className="text-xs text-muted-foreground">{approval.name}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {schools.map((school) => (
+                  <Card
+                    key={school.id}
+                    className="hover:shadow-md transition-shadow"
+                  >
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-lg">
+                            {school.name}
+                          </CardTitle>
+                          <Badge variant="outline" className="mt-1">
+                            {school.code}
+                          </Badge>
+                        </div>
+                        <School className="h-8 w-8 text-muted-foreground" />
                       </div>
-                      <Badge variant={approval.status === 'pending' ? 'default' : 'secondary'}>
-                        {approval.status}
-                      </Badge>
-                    </div>
-                    <div className="flex space-x-2">
-                      <Button size="sm" variant="outline" className="flex-1">
-                        Approve
-                      </Button>
-                      <Button size="sm" variant="outline" className="flex-1">
-                        Reject
-                      </Button>
-                    </div>
-                  </div>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {school.address && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <MapPin className="h-4 w-4" />
+                          <span className="truncate">{school.address}</span>
+                        </div>
+                      )}
+                      {school.phone && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Phone className="h-4 w-4" />
+                          <span>{school.phone}</span>
+                        </div>
+                      )}
+                      {school.email && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Mail className="h-4 w-4" />
+                          <span className="truncate">{school.email}</span>
+                        </div>
+                      )}
+                      <div className="pt-2 border-t">
+                        <div className="flex justify-between text-sm">
+                          <span>{school.totalUsers} utilisateurs</span>
+                          <span>{school.totalCourses} cours</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             </CardContent>
           </Card>
         </div>
-
-        {/* Analytics Tabs */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <TrendingUp className="mr-2 h-5 w-5" />
-              Analytics & Reports
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="students">Students</TabsTrigger>
-                <TabsTrigger value="revenue">Revenue</TabsTrigger>
-                <TabsTrigger value="courses">Courses</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="overview" className="mt-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h4 className="font-medium">Monthly Growth</h4>
-                    {monthlyData.map((data, index) => (
-                      <div key={index} className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">{data.month}</span>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium">{data.students} students</span>
-                          <Progress value={(data.students / 1500) * 100} className="w-20 h-2" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="space-y-4">
-                    <h4 className="font-medium">Revenue Trend</h4>
-                    {monthlyData.map((data, index) => (
-                      <div key={index} className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">{data.month}</span>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium">${data.revenue.toLocaleString()}</span>
-                          <Progress value={(data.revenue / 50000) * 100} className="w-20 h-2" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="students" className="mt-6">
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Student Analytics</h3>
-                  <p className="text-muted-foreground">Detailed student analytics and reports will be displayed here.</p>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="revenue" className="mt-6">
-                <div className="text-center py-8">
-                  <DollarSign className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Revenue Analytics</h3>
-                  <p className="text-muted-foreground">Revenue reports and financial analytics will be displayed here.</p>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="courses" className="mt-6">
-                <div className="text-center py-8">
-                  <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Course Analytics</h3>
-                  <p className="text-muted-foreground">Course performance and enrollment analytics will be displayed here.</p>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Button variant="outline" className="h-20 flex flex-col items-center justify-center">
-                <UserPlus className="h-6 w-6 mb-2" />
-                <span className="text-sm">Add User</span>
-              </Button>
-              <Button variant="outline" className="h-20 flex flex-col items-center justify-center">
-                <BookOpen className="h-6 w-6 mb-2" />
-                <span className="text-sm">Manage Courses</span>
-              </Button>
-              <Button variant="outline" className="h-20 flex flex-col items-center justify-center">
-                <Calendar className="h-6 w-6 mb-2" />
-                <span className="text-sm">Schedules</span>
-              </Button>
-              <Button variant="outline" className="h-20 flex flex-col items-center justify-center">
-                <Settings className="h-6 w-6 mb-2" />
-                <span className="text-sm">System Settings</span>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </DashboardLayout>
+      </DashboardLayout>
+    </ProtectedRoute>
   );
 }

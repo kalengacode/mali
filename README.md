@@ -48,3 +48,4 @@ npx prisma migrate dev --name init
 
 # 5. Lancez le serveur en développement
 npm run dev
+F

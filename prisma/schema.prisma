@@ -1,0 +1,338 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model School {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  address     String?
+  phone       String?
+  email       String?
+  website     String?
+  logo        String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]
+  courses     Course[]
+
+  @@map("schools")
+}
+
+model User {
+  id               String          @id @default(cuid())
+  email            String          @unique
+  password         String
+  firstName        String
+  lastName         String
+  phone            String?
+  avatar           String?
+  role             UserRole
+  schoolId         String?
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  school           School?         @relation(fields: [schoolId], references: [id])
+  adminProfile     AdminProfile?
+  receivedMessages Message[]       @relation("MessageReceiver")
+  sentMessages     Message[]       @relation("MessageSender")
+  notifications    Notification[]
+  payments         Payment[]
+  studentProfile   StudentProfile?
+  teacherProfile   TeacherProfile?
+
+  @@map("users")
+}
+
+model StudentProfile {
+  id               String                 @id @default(cuid())
+  userId           String                 @unique
+  studentId        String                 @unique
+  dateOfBirth      DateTime?
+  address          String?
+  emergencyContact String?
+  enrollmentDate   DateTime               @default(now())
+  assignments      AssignmentSubmission[]
+  enrollments      CourseEnrollment[]
+  examResults      ExamResult[]
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("student_profiles")
+}
+
+model TeacherProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  teacherId      String   @unique
+  department     String
+  specialization String?
+  biography      String?
+  experience     Int?
+  hireDate       DateTime @default(now())
+  courses        Course[]
+  exams          Exam[]
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("teacher_profiles")
+}
+
+model AdminProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  adminId     String   @unique
+  department  String?
+  permissions String[]
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admin_profiles")
+}
+
+model Course {
+  id          String             @id @default(cuid())
+  title       String
+  description String
+  code        String             @unique
+  category    String
+  price       Decimal
+  duration    String
+  maxStudents Int?
+  status      CourseStatus       @default(DRAFT)
+  startDate   DateTime
+  endDate     DateTime
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  teacherId   String
+  schoolId    String?
+  school      School?            @relation(fields: [schoolId], references: [id])
+  assignments Assignment[]
+  enrollments CourseEnrollment[]
+  teacher     TeacherProfile     @relation(fields: [teacherId], references: [id])
+  documents   Document[]
+  exams       Exam[]
+  schedules   Schedule[]
+
+  @@map("courses")
+}
+
+model CourseEnrollment {
+  id          String         @id @default(cuid())
+  studentId   String
+  courseId    String
+  enrolledAt  DateTime       @default(now())
+  completedAt DateTime?
+  grade       Decimal?
+  isActive    Boolean        @default(true)
+  course      Course         @relation(fields: [courseId], references: [id])
+  student     StudentProfile @relation(fields: [studentId], references: [id])
+
+  @@unique([studentId, courseId])
+  @@map("course_enrollments")
+}
+
+model Schedule {
+  id        String   @id @default(cuid())
+  courseId  String
+  dayOfWeek Int
+  startTime String
+  endTime   String
+  room      String
+  type      String
+  createdAt DateTime @default(now())
+  course    Course   @relation(fields: [courseId], references: [id])
+
+  @@map("schedules")
+}
+
+model Exam {
+  id           String         @id @default(cuid())
+  title        String
+  description  String?
+  type         ExamType
+  status       ExamStatus     @default(SCHEDULED)
+  date         DateTime
+  startTime    String
+  duration     Int
+  maxScore     Decimal
+  room         String?
+  instructions String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  courseId     String
+  teacherId    String
+  results      ExamResult[]
+  course       Course         @relation(fields: [courseId], references: [id])
+  teacher      TeacherProfile @relation(fields: [teacherId], references: [id])
+
+  @@map("exams")
+}
+
+model ExamResult {
+  id          String         @id @default(cuid())
+  examId      String
+  studentId   String
+  score       Decimal
+  maxScore    Decimal
+  grade       String?
+  feedback    String?
+  submittedAt DateTime?
+  gradedAt    DateTime?
+  exam        Exam           @relation(fields: [examId], references: [id])
+  student     StudentProfile @relation(fields: [studentId], references: [id])
+
+  @@unique([examId, studentId])
+  @@map("exam_results")
+}
+
+model Assignment {
+  id           String                 @id @default(cuid())
+  title        String
+  description  String
+  dueDate      DateTime
+  maxScore     Decimal
+  instructions String?
+  createdAt    DateTime               @default(now())
+  courseId     String
+  submissions  AssignmentSubmission[]
+  course       Course                 @relation(fields: [courseId], references: [id])
+
+  @@map("assignments")
+}
+
+model AssignmentSubmission {
+  id           String         @id @default(cuid())
+  assignmentId String
+  studentId    String
+  content      String?
+  fileUrl      String?
+  score        Decimal?
+  feedback     String?
+  submittedAt  DateTime       @default(now())
+  gradedAt     DateTime?
+  assignment   Assignment     @relation(fields: [assignmentId], references: [id])
+  student      StudentProfile @relation(fields: [studentId], references: [id])
+
+  @@unique([assignmentId, studentId])
+  @@map("assignment_submissions")
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  userId      String
+  amount      Decimal
+  currency    String        @default("EUR")
+  status      PaymentStatus @default(PENDING)
+  method      String
+  reference   String?
+  description String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  user        User          @relation(fields: [userId], references: [id])
+
+  @@map("payments")
+}
+
+model Document {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  type        DocumentType
+  fileUrl     String
+  fileName    String
+  fileSize    Int
+  mimeType    String
+  isPublic    Boolean      @default(false)
+  downloads   Int          @default(0)
+  uploadedBy  String
+  createdAt   DateTime     @default(now())
+  courseId    String?
+  course      Course?      @relation(fields: [courseId], references: [id])
+
+  @@map("documents")
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  senderId   String
+  receiverId String
+  subject    String?
+  content    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  receiver   User     @relation("MessageReceiver", fields: [receiverId], references: [id])
+  sender     User     @relation("MessageSender", fields: [senderId], references: [id])
+
+  @@map("messages")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+model SystemSettings {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+  type  String
+
+  @@map("system_settings")
+}
+
+enum UserRole {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum CourseStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  SUSPENDED
+}
+
+enum ExamType {
+  QUIZ
+  MIDTERM
+  FINAL
+  ASSIGNMENT
+}
+
+enum ExamStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum DocumentType {
+  COURSE_MATERIAL
+  ASSIGNMENT
+  EXAM
+  CERTIFICATE
+  POLICY
+  GUIDE
+}
